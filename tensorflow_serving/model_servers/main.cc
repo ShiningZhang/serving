@@ -194,14 +194,21 @@ class PredictionServiceImpl final : public PredictionService::Service {
 
   grpc::Status Predict(ServerContext* context, const PredictRequest* request,
                        PredictResponse* response) override {
+	const uint64_t start_mcs = tensorflow::Env::Default()->NowMicros();
+	//LOG(INFO) << "[query begin] [receive a request,input:size=" << request->inputs_size() << ","
+    //          << "model_name=" << request->model_spec().name() << ","
+    //          << "model_signature_name=" << request->model_spec().signature_name() ;
     tensorflow::RunOptions run_options = tensorflow::RunOptions();
     // By default, this is infinite which is the same default as RunOptions.
     run_options.set_timeout_in_ms(
         DeadlineToTimeoutMillis(context->raw_deadline()));
     const grpc::Status status = ToGRPCStatus(
         predictor_->Predict(run_options, core_.get(), *request, response));
+	const uint64_t end_mcs = tensorflow::Env::Default()->NowMicros();
+	LOG(INFO) << "[query end] [cost=" << (end_mcs - start_mcs)/1000 << "ms,"
+			  << "model_name=" << request->model_spec().name() << "]";
     if (!status.ok()) {
-      VLOG(1) << "Predict failed: " << status.error_message();
+      LOG(ERROR) << "Predict failed: " << status.error_message();
     }
     return status;
   }
@@ -285,7 +292,7 @@ void RunServer(int port, std::unique_ptr<ServerCore> core,
   std::shared_ptr<grpc::ServerCredentials> creds = InsecureServerCredentials();
   builder.AddListeningPort(server_address, creds);
   builder.RegisterService(&service);
-  builder.SetMaxMessageSize(tensorflow::kint32max);
+  builder.SetMaxMessageSize(1024*1024*1024);
   std::unique_ptr<Server> server(builder.BuildAndStart());
   LOG(INFO) << "Running ModelServer at " << server_address << " ...";
   server->Wait();
@@ -304,7 +311,7 @@ tensorflow::serving::PlatformConfigMap ParsePlatformConfigMap(
 int main(int argc, char** argv) {
   tensorflow::int32 port = 8500;
   bool enable_batching = false;
-  float per_process_gpu_memory_fraction = 0;
+  float per_process_gpu_memory_fraction = 1.0;
   tensorflow::string batching_parameters_file;
   tensorflow::string model_name = "default";
   tensorflow::int32 file_system_poll_wait_seconds = 1;
@@ -399,6 +406,13 @@ int main(int argc, char** argv) {
           << "You supplied --batching_parameters_file without "
              "--enable_batching";
     }
+
+    session_bundle_config.mutable_session_config()
+		->mutable_gpu_options()
+		->set_allow_growth(true);
+//	session_bundle_config.mutable_session_config()
+//		->set_log_device_placement(true);
+
 
     session_bundle_config.mutable_session_config()
         ->mutable_gpu_options()

@@ -23,6 +23,6 @@ load("//tensorflow_serving:workspace.bzl", "tf_serving_workspace")
 tf_serving_workspace()
 
 # Specify the minimum required bazel version.
-load("@org_tensorflow//tensorflow:workspace.bzl", "check_version")
+#load("@org_tensorflow//tensorflow:workspace.bzl", "check_version")
 
-check_version("0.5.4")
+#check_version("0.5.4")

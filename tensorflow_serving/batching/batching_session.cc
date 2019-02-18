@@ -498,6 +498,9 @@ Status BatchingSession::SplitOutputTensors(
           "Batched output tensor has 0 dimensions");
     }
     if (tensor.shape().dim_size(0) != batch->size() + padding_size) {
+	  LOG(ERROR) << "tensor.shape().dim_size(0) = " << tensor.shape().dim_size(0) << ","
+		         << "batch->size() = " << batch->size() << ","
+				 << "padding_size = " << padding_size << "\n";
       return errors::FailedPrecondition(
           "Batched output tensor's 0th dimension does not equal the sum of the "
           "0th dimension sizes of the input tensors");
